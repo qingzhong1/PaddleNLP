@@ -18,6 +18,7 @@ import os
 import time
 import warnings
 from collections import namedtuple
+from itertools import islice
 
 import datasets
 from multiprocess import Pool, RLock
@@ -50,9 +51,9 @@ def load_from_ppnlp(path, *args, **kwargs):
     new_path = os.path.split(path)[-1]
     new_path = os.path.join(ppnlp_path, "hf_datasets", new_path + ".py")
     if os.path.exists(new_path):
-        return origin_load_dataset(new_path, *args, **kwargs)
+        return origin_load_dataset(new_path, trust_remote_code=True, *args, **kwargs)
     else:
-        return origin_load_dataset(path, *args, **kwargs)
+        return origin_load_dataset(path, trust_remote_code=True, *args, **kwargs)
 
 
 datasets.load_dataset = load_from_ppnlp
@@ -107,7 +108,7 @@ def import_main_class(module_path):
 
 
 def load_from_hf(path, name=None, splits=None, **kwargs):
-    from datasets import DatasetDict
+    from datasets import DatasetDict, IterableDatasetDict
     from datasets import load_dataset as load_hf_dataset
     from datasets.features import ClassLabel
 
@@ -124,6 +125,10 @@ def load_from_hf(path, name=None, splits=None, **kwargs):
                     if isinstance(feature, ClassLabel):
                         label_list = feature.names
                 datasets[split] = MapDataset(ds, label_list=label_list)
+        elif isinstance(hf_datasets, IterableDatasetDict):
+            datasets = DatasetTuple(list(hf_datasets.keys()))
+            for split, ds in hf_datasets.items():
+                datasets[split] = IterDataset(ds)
         elif isinstance(hf_datasets, list):
             datasets = DatasetTuple(splits)
             for i, split in enumerate(splits):
@@ -188,7 +193,9 @@ def load_dataset(path_or_read_func, name=None, data_files=None, splits=None, laz
         try:
             reader_cls = import_main_class(path_or_read_func)
         except ModuleNotFoundError:
-            datasets = load_from_hf(path_or_read_func, name=name, splits=splits, **kwargs)
+            datasets = load_from_hf(
+                path_or_read_func, name=name, splits=splits, data_files=data_files, streaming=lazy, **kwargs
+            )
         else:
             reader_instance = reader_cls(lazy=lazy, name=name, **kwargs)
 
@@ -441,6 +448,12 @@ class IterDataset(IterableDataset):
                 ):
                     yield self._transform(example) if self._transform_pipline else example
                 num_samples += 1
+
+    def skip(self, n):
+        if inspect.isfunction(self.data):
+            raise NotImplementedError("Function-based IterDataset does not support `.skip()`")
+        self.data = islice(self.data, n, None)
+        return self
 
     def filter(self, fn):
         """

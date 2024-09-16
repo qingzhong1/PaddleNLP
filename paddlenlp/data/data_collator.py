@@ -351,6 +351,7 @@ class DataCollatorForSeq2Seq:
             The id to use when padding the labels (-100 will be automatically ignored by PaddlePaddle loss functions).
         return_tensors (`str`):
             The type of Tensor to return. Allowable values are "np", "pt" and "tf".
+        max_label_length (`int`, *optional*, Pad label to max_label_length. defaults to `None`):
     """
 
     tokenizer: PretrainedTokenizerBase
@@ -360,6 +361,8 @@ class DataCollatorForSeq2Seq:
     pad_to_multiple_of: Optional[int] = None
     label_pad_token_id: int = -100
     return_tensors: str = "pd"
+    return_attention_mask: Optional[bool] = None
+    max_label_length: Optional[int] = None
 
     def __call__(self, features, return_tensors=None):
         # Deep copy to avoid modifying features in-place
@@ -367,10 +370,19 @@ class DataCollatorForSeq2Seq:
         if return_tensors is None:
             return_tensors = self.return_tensors
         labels = [feature["labels"] for feature in batch] if "labels" in batch[0].keys() else None
+        use_attn_mask_startend_row_indices = (
+            [feature["attn_mask_startend_row_indices"] for feature in batch]
+            if "attn_mask_startend_row_indices" in batch[0].keys()
+            else None
+        )
         # We have to pad the labels before calling `tokenizer.pad` as this method won't pad them and needs them of the
         # same length to return tensors.
         if labels is not None:
-            max_label_length = max(len(l) for l in labels)
+            # Note(gongenlei): In pipeline, max_label_length = self.max_length
+            if self.max_label_length is not None:
+                max_label_length = self.max_label_length
+            else:
+                max_label_length = max(len(l) for l in labels)
             if self.pad_to_multiple_of is not None:
                 max_label_length = (
                     (max_label_length + self.pad_to_multiple_of - 1)
@@ -389,6 +401,29 @@ class DataCollatorForSeq2Seq:
                     feature["labels"] = np.concatenate([feature["labels"], remainder]).astype(np.int64)
                 else:
                     feature["labels"] = np.concatenate([remainder, feature["labels"]]).astype(np.int64)
+        if use_attn_mask_startend_row_indices is not None:
+            if self.max_length is not None:
+                max_length = self.max_length
+            else:
+                max_length = max(len(l) for l in use_attn_mask_startend_row_indices)
+            if self.pad_to_multiple_of is not None:
+                max_length = (
+                    (max_length + self.pad_to_multiple_of - 1) // self.pad_to_multiple_of * self.pad_to_multiple_of
+                )
+
+            for feature in batch:
+                pad_len = max_length - len(feature["attn_mask_startend_row_indices"])
+                remainder = np.zeros([1, pad_len], dtype=np.int32)
+                feature["attn_mask_startend_row_indices"] = (
+                    np.concatenate(
+                        [remainder, np.array([feature["attn_mask_startend_row_indices"]], dtype=np.int32) + pad_len],
+                        axis=-1,
+                    )
+                    if padding_side == "left"
+                    else np.concatenate(
+                        [np.array([feature["attn_mask_startend_row_indices"]], dtype=np.int32), remainder], axis=-1
+                    )
+                )
 
         batch = self.tokenizer.pad(
             batch,
@@ -396,8 +431,8 @@ class DataCollatorForSeq2Seq:
             max_length=self.max_length,
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors=return_tensors,
+            return_attention_mask=self.return_attention_mask,
         )
-
         # prepare decoder_input_ids
         if (
             labels is not None
@@ -485,7 +520,7 @@ def tolist(x):
     if isinstance(x, list):
         return x
     elif hasattr(x, "numpy"):  # Checks for TF tensors without needing the import
-        x = x.numpy()
+        x = x.cpu().numpy()
     return x.tolist()
 
 

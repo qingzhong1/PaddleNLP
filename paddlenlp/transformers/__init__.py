@@ -25,10 +25,25 @@ from .tokenizer_utils import (
     tokenize_special_chars,
     convert_to_unicode,
 )
+from .tokenizer_utils_fast import PretrainedTokenizerFast
 from .processing_utils import ProcessorMixin
 from .feature_extraction_utils import BatchFeature, FeatureExtractionMixin
 from .image_processing_utils import ImageProcessingMixin
 from .attention_utils import create_bigbird_rand_mask_idx_list
+
+try:
+    from paddle.distributed.fleet.utils.sequence_parallel_utils import (
+        GatherOp,
+        ScatterOp,
+        AllGatherOp,
+        ReduceScatterOp,
+        ColumnSequenceParallelLinear,
+        RowSequenceParallelLinear,
+        mark_as_sequence_parallel_parameter,
+        register_sequence_parallel_allreduce_hooks,
+    )
+except:
+    pass
 from .export import export_model
 
 # isort: split
@@ -37,9 +52,7 @@ from .bert.tokenizer import *
 from .bert.configuration import *
 
 # isort: split
-from .gpt.modeling import *
-from .gpt.tokenizer import *
-from .gpt.configuration import *
+from .gpt import *
 from .roberta.modeling import *
 from .roberta.tokenizer import *
 from .roberta.configuration import *
@@ -110,9 +123,7 @@ from .fnet.configuration import *
 from .funnel.modeling import *
 from .funnel.tokenizer import *
 from .funnel.configuration import *
-from .llama.configuration import *
-from .llama.modeling import *
-from .llama.tokenizer import *
+from .llama import *
 from .layoutlm.configuration import *
 from .layoutlm.modeling import *
 from .layoutlm.tokenizer import *
@@ -173,6 +184,9 @@ from .transformer.modeling import *
 from .unified_transformer.modeling import *
 from .unified_transformer.tokenizer import *
 from .unified_transformer.configuration import *
+from .ernie_code.tokenizer import *
+from .ernie_code.modeling import *
+from .ernie_code.configuration import *
 from .ernie_vil.configuration import *
 from .ernie_vil.modeling import *
 from .ernie_vil.feature_extraction import *
@@ -191,6 +205,7 @@ from .xlm.configuration import *
 from .gau_alpha.modeling import *
 from .gau_alpha.tokenizer import *
 from .gau_alpha.configuration import *
+from .gemma import *
 from .roformerv2.modeling import *
 from .roformerv2.tokenizer import *
 from .roformerv2.configuration import *
@@ -200,6 +215,7 @@ from .opt.modeling import *
 from .auto.modeling import *
 from .auto.tokenizer import *
 from .auto.processing import *
+from .auto.image_processing import *
 from .auto.configuration import *
 from .codegen.modeling import *
 from .codegen.tokenizer import *
@@ -247,6 +263,9 @@ from .blip_2.processing import *
 from .chatglm.configuration import *
 from .chatglm.modeling import *
 from .chatglm.tokenizer import *
+from .chatglm_v2.configuration import *
+from .chatglm_v2.modeling import *
+from .chatglm_v2.tokenizer import *
 from .speecht5.configuration import *
 from .speecht5.modeling import *
 from .speecht5.tokenizer import *
@@ -260,14 +279,30 @@ from .clap.configuration import *
 from .clap.feature_extraction import *
 from .clap.modeling import *
 from .clap.processing import *
-
-# For faster tokenizer
-from ..utils.import_utils import is_fast_tokenizer_available
-
-if is_fast_tokenizer_available():
-    from .tokenizer_utils_fast import PretrainedFastTokenizer
-    from .bert.fast_tokenizer import *
-    from .ernie.fast_tokenizer import *
-    from .tinybert.fast_tokenizer import *
-    from .ernie_m.fast_tokenizer import *
-    from .nystromformer.fast_tokenizer import *
+from .visualglm.modeling import *
+from .visualglm.configuration import *
+from .visualglm.processing import *
+from .visualglm.image_processing import *
+from .rw.modeling import *
+from .rw.configuration import *
+from .rw.tokenizer import *
+from .mistral.modeling import *
+from .mistral.configuration import *
+from .qwen import *
+from .mixtral.modeling import *
+from .mixtral.configuration import *
+from .deberta.modeling import *
+from .deberta.tokenizer import *
+from .deberta.configuration import *
+from .deberta_v2.modeling import *
+from .deberta_v2.tokenizer import *
+from .deberta_v2.configuration import *
+from .qwen2 import *
+from .qwen2_moe import *
+from .yuan import *
+from .mamba.configuration import *
+from .mamba.modeling import *
+from .mamba.tokenizer import *
+from .jamba.modeling import *
+from .jamba.configuration import *
+from .jamba.tokenizer import *
